@@ -123,35 +123,54 @@ class SQLQueryGenerator:
             state.answer = None
             return state
 
+    # def run_graph(self, initial_state: State):
+    #     """Run the LangGraph with human-in-the-loop."""
+    #     memory = MemorySaver()
+    #     graph_builder = StateGraph(State).add_sequence([self.write_query, self.execute_query, self.generate_answer])
+    #     graph_builder.add_edge(START, "write_query")
+    #     graph = graph_builder.compile(checkpointer=memory, interrupt_before=["execute_query"])
+    #     config = {"configurable": {"thread_id": "1"}}
+
+    #     for step in graph.stream(initial_state, config, stream_mode="updates"):
+    #         print(f"Step Result: {step}")
+    #         # Update the state with the step result
+    #         if "question" in step:
+    #             initial_state.question = step["question"]
+    #         if "query" in step:
+    #             initial_state.query = step["query"]
+    #         if "result" in step:
+    #             initial_state.result = step["result"]
+    #         if "answer" in step:
+    #             initial_state.answer = step["answer"]
+        
+    #     try:
+    #         user_approval = input("Do you want to proceed with executing the query? (yes/no): ")
+    #     except Exception as e:
+    #         user_approval = "no"
+    #         print("Error during user approval:", e)
+
+    #     if user_approval.lower() == "yes":
+    #         for step in graph.stream(None, config, stream_mode="updates"):
+    #             print(f"Step Result: {step}")
+    #     else:
+    #         print("Operation cancelled by user.")
+
     def run_graph(self, initial_state: State):
-        """Run the LangGraph with human-in-the-loop."""
+        """Run the LangGraph without human-in-the-loop."""
         memory = MemorySaver()
         graph_builder = StateGraph(State).add_sequence([self.write_query, self.execute_query, self.generate_answer])
         graph_builder.add_edge(START, "write_query")
-        graph = graph_builder.compile(checkpointer=memory, interrupt_before=["execute_query"])
+        graph = graph_builder.compile(checkpointer=memory)
         config = {"configurable": {"thread_id": "1"}}
 
         for step in graph.stream(initial_state, config, stream_mode="updates"):
             print(f"Step Result: {step}")
             # Update the state with the step result
-            if "question" in step:
-                initial_state.question = step["question"]
-            if "query" in step:
-                initial_state.query = step["query"]
-            if "result" in step:
-                initial_state.result = step["result"]
-            if "answer" in step:
-                initial_state.answer = step["answer"]
-        
-        try:
-            user_approval = input("Do you want to proceed with executing the query? (yes/no): ")
-        except Exception as e:
-            user_approval = "no"
-            print("Error during user approval:", e)
-
-        if user_approval.lower() == "yes":
-            for step in graph.stream(None, config, stream_mode="updates"):
-                print(f"Step Result: {step}")
-        else:
-            print("Operation cancelled by user.")
-
+            if "write_query" in step:
+                initial_state = step["write_query"]
+            if "execute_query" in step:
+                initial_state = step["execute_query"]
+            if "generate_answer" in step:
+                initial_state = step["generate_answer"]
+        return initial_state
+    
