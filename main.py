@@ -11,6 +11,11 @@ from langchain_google_vertexai import ChatVertexAI
 from langchain import hub
 from typing import Optional
 from typing_extensions import Annotated, TypedDict
+from langchain_community.tools.sql_database.tool import QuerySQLDatabaseTool
+from langgraph.graph import START, StateGraph
+from IPython.display import display, Image
+from langgraph.checkpoint.memory import MemorySaver
+
 
 import os
 
@@ -70,7 +75,6 @@ query_prompt_template = hub.pull("langchain-ai/sql-query-system-prompt")
 # Function to generate SQL queries
 def write_query(state: State):
     ''' Generate SQL Query to fetch information. '''
-    print('Entered write_query function.', state["question"])
     try:
         # Generate the SQL query using the prompt template
         prompt = query_prompt_template.invoke(
@@ -82,14 +86,88 @@ def write_query(state: State):
             }
         )
         # Use the structured LLM to get the query
+        return {"query": "SELECT * FROM customers"}
         structured_llm = llm.with_structured_output(QueryOutput)
         result = structured_llm.invoke(prompt)
-        print('------RES : ', llm.invoke(prompt))
+        # print('------RES : ', llm.invoke(prompt))
         return result["query"]
+
     except Exception as e:
         print('Error in generating query:', e)
         return {"query": None}
 
 # Example usage of the write_query function
 output = write_query({"question": "Get all the customers"})
-print("Generated Query:", output["query"])
+print("*******Generated Query:", output["query"])
+
+def execute_query(state: State):
+    """Execute the SQL query on the database."""
+    try:
+        excute_query_tool = QuerySQLDatabaseTool(db=db)
+        return { "result": excute_query_tool.invoke(state["query"])}
+    except Exception as e:
+        print('Error in executing query:', e)
+        return {"result": None}
+    
+# result = execute_query({"query": "SELECT * FROM customers"})
+result = execute_query(output)
+# print('---RES ', result)
+
+# Generate Answers
+def generate_answer(state: State):
+    """Generate answer based on the query result."""
+    try:
+        prompt = (
+            "Given the following user question, corresponding SQL query, and the result of the query, "
+            "and SQL result, answer the user question.\n\n"
+            f"question: {state['question']}\n"
+            f"SQL Query: {state['query']}\n"
+            f"SQL Result: {state['result']}\n\n"
+        )
+        response = llm.invoke(prompt)
+        return {"answer": response.content }
+    except Exception as e:
+        print('Error in generating answer:', e)
+        return {"answer": None}
+
+graph_builder = StateGraph(State).add_sequence(
+    [write_query, execute_query, generate_answer]
+)
+graph_builder.add_edge(START, "write_query")
+graph = graph_builder.compile()
+
+# display(Image(graph.get_graph().draw_mermaid_png()))    
+# print('******Graph:****** ', graph)
+
+# for step in graph.stream(
+#     {"question": "how many customers are present"}
+# ):
+#     print(step)
+
+# Human in the loop
+memory = MemorySaver()
+graph = graph_builder.compile(checkpointer=memory, interrupt_before=["execute_query"])
+
+config = { "configurable": {"thread_id": "1"}}
+
+# display(Image(graph.get_graph().draw_mermaid_png())) 
+
+for step in graph.stream(
+    {"question": "how many customers are present"},
+    config,
+    stream_mode="updates"
+):
+    print(step)
+
+try:
+    user_approval = input("Do you want to go to execute query? (yes/no): ")
+except Exception as e:
+    user_approval = "no"
+    print('Error in user approval:', e)
+
+if user_approval.lower() == "yes":
+    # If step approved, continue
+    for step in graph.stream(None, config, stream_mode="updates"):
+        print(step) 
+else:
+    print("Operation cancelled by user")
