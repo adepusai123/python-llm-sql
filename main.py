@@ -9,8 +9,7 @@ from google.auth import load_credentials_from_file
 from dotenv import load_dotenv
 from langchain_google_vertexai import ChatVertexAI
 from langchain import hub
-from typing import Optional
-from typing_extensions import Annotated, TypedDict
+from pydantic import BaseModel
 from langchain_community.tools.sql_database.tool import QuerySQLDatabaseTool
 from langgraph.graph import START, StateGraph
 from IPython.display import display, Image
@@ -23,16 +22,16 @@ import os
 load_dotenv()
 
 # Define types for function inputs/outputs
-class State(TypedDict):
+class State(BaseModel):
     question: str
     query: str
     result: str
     answer: str
 
-class QueryOutput(TypedDict):
+class QueryOutput(BaseModel):
     """Generated SQL query."""
-    query: Annotated[str, ..., "Syntactically valid SQL query."]
-
+    # query: Annotated[str, ..., "Syntactically valid SQL query."]
+    query: str
 
 # Function to connect to MySQL Database
 def getSQLConnection():
@@ -73,7 +72,7 @@ llm = initiateGoogleAIPlatform()
 query_prompt_template = hub.pull("langchain-ai/sql-query-system-prompt")
 
 # Function to generate SQL queries
-def write_query(state: State):
+def write_query(state:State):
     ''' Generate SQL Query to fetch information. '''
     try:
         # Generate the SQL query using the prompt template
@@ -86,10 +85,10 @@ def write_query(state: State):
             }
         )
         # Use the structured LLM to get the query
-        return {"query": "SELECT * FROM customers"}
+        # return {"query": "SELECT * FROM customers"}
         structured_llm = llm.with_structured_output(QueryOutput)
         result = structured_llm.invoke(prompt)
-        # print('------RES : ', llm.invoke(prompt))
+        print('------RES : ', result)
         return result["query"]
 
     except Exception as e:
@@ -98,7 +97,7 @@ def write_query(state: State):
 
 # Example usage of the write_query function
 output = write_query({"question": "Get all the customers"})
-print("*******Generated Query:", output["query"])
+print("*******Generated Query:", output)
 
 def execute_query(state: State):
     """Execute the SQL query on the database."""
