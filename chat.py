@@ -37,12 +37,11 @@ def chat_ui():
                 st.session_state.query_generator = SQLQueryGenerator()
                 st.session_state.connected = True
                 st.success("Connected to SQLQueryGenerator!")
-            
                 st.session_state.chat_state = {
-                        "question": "",
-                        "query": "",
-                        "result": "",
-                        "answer": ""
+                    "question": "",
+                    "query": "",
+                    "result": "",
+                    "answer": ""
                 }
         else:
             if st.session_state.connected:
@@ -51,36 +50,45 @@ def chat_ui():
                 st.warning("Disconnected from SQLQueryGenerator!")
 
         if st.session_state.connected:
-        # Display chat UI when connected
-            user_input = st.text_input("Ask a question:", key="user_input", placeholder="Ask about your database...")
-        if st.button("Submit Question"):
-            if user_input:
-                # Set the user's question in the chat state
-                st.session_state.chat_state["question"] = user_input
+            # Handle question submission
+            def handle_question_submit():
+                user_input = st.session_state.user_input
+                if user_input:
+                    # Set the user's question in the chat state
+                    st.session_state.chat_state["question"] = user_input
 
-                # Display the user's question
-                st.write(f"**User**: {user_input}")
+                    # Display the user's question
+                    st.write(f"**User**: {user_input}")
 
-                # Use the run_graph method to process the question
-                st.session_state.chat_state = st.session_state.query_generator.run_graph(st.session_state.chat_state)
-                print('st.session_state.chat_state: *****', st.session_state.chat_state)
-                # Display the generated SQL query
-                st.write(f"**Generated SQL Query**: {st.session_state.chat_state['query']}")
+                    # Use the run_graph method to process the question
+                    st.session_state.chat_state = st.session_state.query_generator.run_graph(
+                        st.session_state.chat_state
+                    )
 
-                # Display the query result
-                st.write(f"**SQL Result**: {st.session_state.chat_state['result']}")
+                    # Display the generated SQL query
+                    st.write(f"**Generated SQL Query**: {st.session_state.chat_state['query']}")
 
-                # Display the AI's answer
-                st.write(f"**Answer**: {st.session_state.chat_state['answer']}")
+                    # Display the query result
+                    st.write(f"**SQL Result**: {st.session_state.chat_state['result']}")
 
-                # # Reset the state for the next question
-                if st.button("Ask another question"):
-                    st.session_state.chat_state = {
-                        "question": "",
-                        "query": "",
-                        "result": "",
-                        "answer": ""
-                    }
+                    # Display the AI's answer
+                    st.write(f"**Answer**: {st.session_state.chat_state['answer']}")
+
+                    # Clear the input field after submission
+                    st.session_state.user_input = ""
+
+            # Input field for user question
+            st.text_input(
+                "Ask a question:",
+                key="user_input",
+                placeholder="Ask about your database...",
+                on_change=handle_question_submit  # Trigger on Enter key press
+            )
+
+            # Submit button
+            if st.button("Submit Question"):
+                handle_question_submit()
+
     except Exception as e:
         st.session_state.connected = False
         st.error(f"An error occurred: {e}")
