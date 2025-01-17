@@ -48,19 +48,24 @@ class SQLQueryGenerator:
         return llm
     
     def create_custom_prompt(self, schema, dialect, question):
-        """Create a custom prompt for SQL query generation."""
+        """Create a custom prompt for SQL query generation, with SQL Agent instructions."""
         prompt = f"""
-        You are an AI assistant tasked with generating SQL queries. 
-        The database uses the {dialect} dialect. Here is the schema of the database:
+        You are an SQL Agent tasked with generating the most optimized and syntactically correct SQL query 
+        based on the user's question. The database uses the {dialect} dialect. Here is the schema of the database:
 
         {schema}
 
-        Write a syntactically correct SQL query for the following question:
+        Your task is to generate an SQL query that answers the following question:
 
         {question}
 
-        Ensure the query retrieves relevant information and adheres to SQL best practices.
-        Do not include any unnecessary columns or clauses.
+        Please ensure the query:
+        - Retrieves only the relevant data.
+        - Uses proper SQL syntax.
+        - Does not include unnecessary columns or clauses.
+        - Is efficient and optimized.
+        
+        Make sure the query is correct and clean, and ready to be executed directly.
         """
         return prompt
 
@@ -123,38 +128,6 @@ class SQLQueryGenerator:
             state.answer = None
             return state
 
-    # def run_graph(self, initial_state: State):
-    #     """Run the LangGraph with human-in-the-loop."""
-    #     memory = MemorySaver()
-    #     graph_builder = StateGraph(State).add_sequence([self.write_query, self.execute_query, self.generate_answer])
-    #     graph_builder.add_edge(START, "write_query")
-    #     graph = graph_builder.compile(checkpointer=memory, interrupt_before=["execute_query"])
-    #     config = {"configurable": {"thread_id": "1"}}
-
-    #     for step in graph.stream(initial_state, config, stream_mode="updates"):
-    #         print(f"Step Result: {step}")
-    #         # Update the state with the step result
-    #         if "question" in step:
-    #             initial_state.question = step["question"]
-    #         if "query" in step:
-    #             initial_state.query = step["query"]
-    #         if "result" in step:
-    #             initial_state.result = step["result"]
-    #         if "answer" in step:
-    #             initial_state.answer = step["answer"]
-        
-    #     try:
-    #         user_approval = input("Do you want to proceed with executing the query? (yes/no): ")
-    #     except Exception as e:
-    #         user_approval = "no"
-    #         print("Error during user approval:", e)
-
-    #     if user_approval.lower() == "yes":
-    #         for step in graph.stream(None, config, stream_mode="updates"):
-    #             print(f"Step Result: {step}")
-    #     else:
-    #         print("Operation cancelled by user.")
-
     def run_graph(self, initial_state: State):
         """Run the LangGraph without human-in-the-loop."""
         memory = MemorySaver()
@@ -173,4 +146,3 @@ class SQLQueryGenerator:
             if "generate_answer" in step:
                 initial_state = step["generate_answer"]
         return initial_state
-    
